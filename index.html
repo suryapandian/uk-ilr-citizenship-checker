@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>ILR Eligibility Checker</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; }
+  label { display: block; margin-top: 1rem; }
+  input[type="date"] { margin-right: 0.5rem; }
+  button { margin-top: 1rem; padding: 0.5rem 1rem; }
+  .travel-period { margin-bottom: 0.5rem; }
+  #result { margin-top: 1rem; font-weight: bold; }
+  .error { color: red; }
+</style>
+</head>
+<body>
+
+<h1>ILR Eligibility Checker</h1>
+
+<label>
+  Arrival date:
+  <input type="date" id="arrivalDate" />
+</label>
+
+<div id="travelPeriodsContainer">
+  <label>Travel periods (outside UK):</label>
+</div>
+
+<button type="button" id="addPeriodBtn">Add Travel Period</button>
+
+<br/>
+
+<button type="button" id="checkBtn">Check Eligibility</button>
+
+<div id="result"></div>
+
+<script type="module">
+  import init, { check_ilr_eligibility } from 'pkg/uk-ilr-citizenship-checker/pkg/uk_ilr_citizenship_checker.js';
+
+  let wasmReady = false;
+  init().then(() => { wasmReady = true; });
+
+  function addPeriod() {
+    const container = document.getElementById('travelPeriodsContainer');
+    const div = document.createElement('div');
+    div.className = 'travel-period';
+    div.innerHTML = `
+      <input type="date" class="startDate" /> to <input type="date" class="endDate" />
+      <button type="button" class="removeBtn">Remove</button>
+    `;
+    container.appendChild(div);
+
+    div.querySelector('.removeBtn').addEventListener('click', () => {
+      div.remove();
+    });
+  }
+
+  async function checkEligibility() {
+    const resultDiv = document.getElementById('result');
+    resultDiv.textContent = '';
+    resultDiv.className = '';
+
+    if (!wasmReady) {
+      resultDiv.textContent = 'WASM module not loaded yet. Please wait.';
+      resultDiv.className = 'error';
+      return;
+    }
+
+    const arrivalInput = document.getElementById('arrivalDate').value;
+    if (!arrivalInput) {
+      resultDiv.textContent = 'Please enter your arrival date.';
+      resultDiv.className = 'error';
+      return;
+    }
+
+    const travelPeriodsDivs = document.querySelectorAll('.travel-period');
+    const travelPeriods = [];
+
+    for (const div of travelPeriodsDivs) {
+      const start = div.querySelector('.startDate').value;
+      const end = div.querySelector('.endDate').value;
+
+      if (!start || !end) {
+        resultDiv.textContent = 'Please fill in all travel period dates.';
+        resultDiv.className = 'error';
+        return;
+      }
+
+      if (start > end) {
+        resultDiv.textContent = 'Travel period start date must be before or equal to end date.';
+        resultDiv.className = 'error';
+        return;
+      }
+
+      travelPeriods.push([start, end]);
+    }
+
+    try {
+      const eligible = await check_ilr_eligibility(arrivalInput, travelPeriods);
+      if (eligible) {
+        resultDiv.textContent = 'You are eligible to apply for ILR based on the inputs.';
+        resultDiv.className = '';
+      } else {
+        resultDiv.textContent = 'You are NOT eligible to apply for ILR due to travel limits.';
+        resultDiv.className = 'error';
+      }
+    } catch (e) {
+      resultDiv.textContent = 'Error: ' + e;
+      resultDiv.className = 'error';
+    }
+  }
+
+  // Set up event listeners
+  document.getElementById('addPeriodBtn').addEventListener('click', addPeriod);
+  document.getElementById('checkBtn').addEventListener('click', checkEligibility);
+
+  // Add initial travel period input on page load
+  addPeriod();
+</script>
+
+</body>
+</html>

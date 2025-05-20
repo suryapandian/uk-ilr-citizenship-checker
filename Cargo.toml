@@ -1,0 +1,12 @@
+[package]
+name = "uk-ilr-citizenship-checker"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+chrono = { version = "0.4", features = ["serde"] }
+js-sys = "0.3"
