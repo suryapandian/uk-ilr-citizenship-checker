@@ -16,37 +16,31 @@ function parseTravelPeriods(input) {
   }).filter(p => p.start && p.end);
 }
 
-// Test cases
+// Test scenarios
 const tests = [
   {
-    name: "Same day",
-    start: "2023-01-01",
-    end: "2023-01-01", 
-    expected: 1
+    name: "Low travel volume - Holiday trips",
+    arrivalDate: "2020-01-01",
+    travelDates: `2021-12-01 to 2022-01-15
+2023-07-01 to 2023-07-30`,
+    expectedTotalDays: 76 // 46 + 30
   },
   {
-    name: "7-day trip",
-    start: "2023-01-01",
-    end: "2023-01-07",
-    expected: 7
+    name: "High travel volume - Extended stays", 
+    arrivalDate: "2019-03-01",
+    travelDates: `2020-06-01 to 2020-08-15
+2021-12-15 to 2022-02-28
+2023-05-01 to 2023-08-31
+2024-01-01 to 2024-03-15`,
+    expectedTotalDays: 350 // 76 + 76 + 123 + 75
   },
   {
-    name: "31-day January",
-    start: "2023-01-01", 
-    end: "2023-01-31",
-    expected: 31
-  },
-  {
-    name: "Leap year Feb",
-    start: "2024-02-01",
-    end: "2024-02-29", 
-    expected: 29
-  },
-  {
-    name: "Non-leap year Feb",
-    start: "2023-02-01",
-    end: "2023-02-28",
-    expected: 28
+    name: "Multiple short trips - Day visits",
+    arrivalDate: "2021-06-01",
+    travelDates: `2022-12-25 to 2022-12-25
+2023-01-01 to 2023-01-01
+2024-07-04 to 2024-07-04`,
+    expectedTotalDays: 3 // 1 + 1 + 1
   }
 ];
 
@@ -61,22 +55,30 @@ const realWorldTest = {
   expectedTotalDays: 345 // 111 + 109 + 111 + 7 + 7
 };
 
-// Run basic tests
+// Run tests
 console.log("Running travel calculation tests...\n");
 
 let passed = 0;
 let failed = 0;
 
+// Test each scenario
 tests.forEach(test => {
-  const start = parseDate(test.start);
-  const end = parseDate(test.end);
-  const result = daysBetween(start, end);
+  console.log(`\n${test.name}:`);
+  const travelPeriods = parseTravelPeriods(test.travelDates);
+  let totalDays = 0;
   
-  if (result === test.expected) {
-    console.log(`✅ ${test.name}: ${result} days`);
+  travelPeriods.forEach(p => {
+    console.log(`  ${p.start.toDateString()} to ${p.end.toDateString()}: ${p.days} days`);
+    totalDays += p.days;
+  });
+  
+  console.log(`Total: ${totalDays} days, Expected: ${test.expectedTotalDays}`);
+  
+  if (totalDays === test.expectedTotalDays) {
+    console.log(`✅ PASSED`);
     passed++;
   } else {
-    console.log(`❌ ${test.name}: Expected ${test.expected}, got ${result}`);
+    console.log(`❌ FAILED`);
     failed++;
   }
 });

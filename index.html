@@ -131,25 +131,30 @@
         }
       });
 
-      // Calculate total days traveled
-      let totalDaysTraveled = 0;
-      travelPeriods.forEach(p => {
-        totalDaysTraveled += p.days;
-      });
+      // Generate travel statistics
+      function generateTravelStats() {
+        let totalDaysTraveled = 0;
+        travelPeriods.forEach(p => totalDaysTraveled += p.days);
+        
+        const today = new Date();
+        const oneYearFromCitizenship = new Date(citizenshipDate.getTime() - (365 * 24 * 60 * 60 * 1000));
+        const isLastYear = today >= oneYearFromCitizenship;
+        const daysLeftToTravel = isLastYear ? 
+          Math.min(Math.max(0, 450 - totalDaysAbroad), Math.max(0, 90 - recent90)) : 
+          Math.max(0, 450 - totalDaysAbroad);
+        
+        return `
+          <div style="background: #e8f4f8; padding: 1em; border-radius: 8px; margin-bottom: 1em;">
+            <p><strong>📊 Travel Statistics:</strong></p>
+            <p>🌍 <strong>Total days traveled so far:</strong> ${totalDaysTraveled} days</p>
+            <p>❓ <strong>How many more days left to travel?</strong> ${daysLeftToTravel} days</p>
+            <p>🛂 <strong>Days left for Citizenship (450-day rule):</strong> ${Math.max(0, 450 - totalDaysAbroad)} days</p>
+            <p>🗓️ <strong>Days left for Citizenship (90-day rule):</strong> ${Math.max(0, 90 - recent90)} days</p>
+          </div>
+        `;
+      }
 
-      // Travel Statistics
-      result.innerHTML += `<div style="background: #e8f4f8; padding: 1em; border-radius: 8px; margin-bottom: 1em;">`;
-      result.innerHTML += `<p><strong>📊 Travel Statistics:</strong></p>`;
-      result.innerHTML += `<p>🌍 <strong>Total days traveled so far:</strong> ${totalDaysTraveled} days</p>`;
-      const today = new Date();
-      const oneYearFromCitizenship = new Date(citizenshipDate.getTime() - (365 * 24 * 60 * 60 * 1000));
-      const isLastYear = today >= oneYearFromCitizenship;
-      const daysLeftToTravel = isLastYear ? Math.min(Math.max(0, 450 - totalDaysAbroad), Math.max(0, 90 - recent90)) : Math.max(0, 450 - totalDaysAbroad);
-      
-      result.innerHTML += `<p>❓ <strong>How many more days left to travel?</strong> ${daysLeftToTravel} days</p>`;
-      result.innerHTML += `<p>🛂 <strong>Days left for Citizenship (450-day rule):</strong> ${Math.max(0, 450 - totalDaysAbroad)} days</p>`;
-      result.innerHTML += `<p>🗓️ <strong>Days left for Citizenship (90-day rule):</strong> ${Math.max(0, 90 - recent90)} days</p>`;
-      result.innerHTML += `</div>`;
+      result.innerHTML += generateTravelStats();
 
       // Results
       result.innerHTML += `<p><strong>ILR Eligibility Check:</strong></p>`;
@@ -174,6 +179,22 @@
       }
     }
   </script>
+  
+  <!-- Load local test data if running locally -->
+  <script>
+    // Check if local-data.js exists and load it
+    fetch('./local-data.js')
+      .then(response => {
+        if (response.ok) {
+          const script = document.createElement('script');
+          script.src = './local-data.js';
+          document.head.appendChild(script);
+        }
+      })
+      .catch(() => {
+        // local-data.js doesn't exist, ignore
+      });
+  </script>
 
 <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
   <a href="https://github.com/suryapandian/uk-ilr-citizenship-checker/issues" target="_blank" style="
@@ -191,44 +212,7 @@
 </div>
 
 
-  <!-- ChatGPT Badge -->
-<div style="text-align: center; margin-top: 2em;">
-  <a href="https://openai.com/chatgpt" target="_blank" rel="noopener" style="text-decoration: none;">
-    <span style="
-      display: inline-block;
-      padding: 6px 12px;
-      background-color: #10a37f;
-      color: white;
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      border-radius: 4px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      transition: background-color 0.3s;
-    " onmouseover="this.style.backgroundColor='#0e8c6b'" onmouseout="this.style.backgroundColor='#10a37f'">
-      🤖 Powered by ChatGPT
-    </span>
-  </a>
-</div>
 
-<!-- Surya Attribution Badge -->
-<div style="text-align: center; margin-top: 1.5em;">
-  <a href="https://suryapandian.wordpress.com" target="_blank" rel="noopener" style="text-decoration: none;">
-    <span style="
-      display: inline-block;
-      padding: 8px 16px;
-      background-color: #f0e6f6;
-      color: #4a3b57;
-      font-family: 'Georgia', serif;
-      font-size: 14px;
-      border-radius: 8px;
-      border: 1px solid #d4c2e2;
-      box-shadow: 1px 1px 4px rgba(0,0,0,0.06);
-      transition: background-color 0.3s ease, transform 0.2s ease;
-    " onmouseover="this.style.backgroundColor='#e4d6ec'; this.style.transform='translateY(-1px)'" onmouseout="this.style.backgroundColor='#f0e6f6'; this.style.transform='translateY(0)'">
-      🌸 Brought to you by Surya
-    </span>
-  </a>
-</div>
 
 
 </body>
