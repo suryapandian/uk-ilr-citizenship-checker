@@ -41,6 +41,15 @@ const tests = [
 2023-01-01 to 2023-01-01
 2024-07-04 to 2024-07-04`,
     expectedTotalDays: 3 // 1 + 1 + 1
+  },
+  {
+    name: "Over limit - Excessive travel",
+    arrivalDate: "2019-01-01",
+    travelDates: `2020-01-01 to 2020-06-30
+2021-01-01 to 2021-06-30
+2022-01-01 to 2022-06-30
+2023-01-01 to 2023-06-30`,
+    expectedTotalDays: 721 // 181 + 180 + 180 + 180 (over 450 limit)
   }
 ];
 
