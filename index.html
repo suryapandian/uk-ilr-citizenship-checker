@@ -29,11 +29,22 @@
   <!-- <meta name="twitter:image" content="https://your-site.netlify.app/og-image.jpg" /> -->
 
   <style>
-    body { font-family: Arial, sans-serif; margin: 2em; max-width: 700px; }
+    body { font-family: Arial, sans-serif; margin: 2em; max-width: 900px; }
     input, textarea, button { width: 100%; margin-top: 1em; padding: 0.5em; }
     .result { margin-top: 2em; padding: 1em; border: 1px solid #ccc; border-radius: 8px; background: #f9f9f9; }
     .fail { color: red; }
     .pass { color: green; }
+    .report-table { width: 100%; border-collapse: collapse; margin: 1.5em 0; font-size: 0.9em; }
+    .report-table th { background-color: #007bff; color: white; padding: 0.75em; text-align: left; border: 1px solid #ccc; }
+    .report-table td { padding: 0.75em; border: 1px solid #ddd; }
+    .report-table tr:nth-child(even) { background-color: #f5f5f5; }
+    .pass-period { background-color: #d4edda; }
+    .fail-period { background-color: #f8d7da; }
+    .warning-period { background-color: #fff3cd; }
+    button { cursor: pointer; border: none; border-radius: 4px; background-color: #28a745; color: white; }
+    button:hover { opacity: 0.9; }
+    #reportBtn { background-color: #007bff; }
+    .summary-box { background: #e8f4f8; padding: 1em; border-left: 4px solid #007bff; margin: 1em 0; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -53,10 +64,15 @@
   <textarea id="travelDates" rows="8" placeholder="e.g. 2022-10-28 to 2023-02-13"></textarea>
 
   <button onclick="checkEligibility()">Check Eligibility</button>
+  <button onclick="toggleDetailedReport()" id="reportBtn" style="display: none; background-color: #007bff; color: white; cursor: pointer;">📊 View Detailed Rolling Periods Report</button>
 
   <div id="result" class="result"></div>
+  <div id="detailedReport" class="result" style="display: none; background: #f0f8ff;"></div>
 
   <script>
+    let lastArrivalDate = null;
+    let lastTravelPeriods = null;
+
     function parseDate(str) {
       const [y, m, d] = str.split('-').map(Number);
       return new Date(y, m - 1, d);
@@ -73,16 +89,94 @@
       }).filter(p => p.start && p.end);
     }
 
+    function generateDetailedRollingPeriodsReport(arrivalDate, earliestApplyDate, travelPeriods) {
+      const rollingPeriods = [];
+      const checkedDates = new Set();
+
+      // Generate rolling 12-month periods for key dates: when travel starts/ends and every month
+      const keyDates = [new Date(arrivalDate)];
+
+      // Add all travel period start and end dates
+      travelPeriods.forEach(p => {
+        keyDates.push(new Date(p.start));
+        keyDates.push(new Date(p.end));
+      });
+
+      // Add monthly checkpoints
+      for (let d = new Date(arrivalDate); d <= earliestApplyDate; d.setMonth(d.getMonth() + 1)) {
+        keyDates.push(new Date(d));
+      }
+
+      // Sort and deduplicate dates
+      const uniqueDates = [...new Set(keyDates.map(d => d.getTime()))].sort((a, b) => a - b).map(t => new Date(t));
+
+      // Calculate rolling periods for each unique date
+      uniqueDates.forEach(day => {
+        if (day > earliestApplyDate) return;
+
+        const windowStart = new Date(day);
+        windowStart.setFullYear(windowStart.getFullYear() - 1);
+
+        let daysAbroad = 0;
+        const periodsInWindow = [];
+
+        travelPeriods.forEach((p, idx) => {
+          if (p.end >= windowStart && p.start <= day) {
+            const overlapStart = p.start < windowStart ? windowStart : p.start;
+            const overlapEnd = p.end > day ? day : p.end;
+            const daysInPeriod = daysBetween(overlapStart, overlapEnd);
+            daysAbroad += daysInPeriod;
+            periodsInWindow.push({
+              travelIndex: idx + 1,
+              start: p.start,
+              end: p.end,
+              originalDays: p.days,
+              overlapStart,
+              overlapEnd,
+              daysInPeriod
+            });
+          }
+        });
+
+        // Avoid duplicates
+        const dateKey = `${windowStart.getTime()}-${day.getTime()}`;
+        if (!checkedDates.has(dateKey) && daysAbroad > 0) {
+          checkedDates.add(dateKey);
+          rollingPeriods.push({
+            windowStart,
+            endDate: day,
+            daysAbroad,
+            isEligible: daysAbroad <= 180,
+            periodsInWindow
+          });
+        }
+      });
+
+      return rollingPeriods;
+    }
+
+    function toggleDetailedReport() {
+      const reportDiv = document.getElementById('detailedReport');
+      reportDiv.style.display = reportDiv.style.display === 'none' ? 'block' : 'none';
+    }
+
     function checkEligibility() {
       const arrivalDate = parseDate(document.getElementById('arrivalDate').value);
       const travelPeriods = parseTravelPeriods(document.getElementById('travelDates').value);
       const result = document.getElementById('result');
+      const reportDiv = document.getElementById('detailedReport');
       result.innerHTML = "";
+      reportDiv.innerHTML = "";
+      reportDiv.style.display = 'none';
 
       if (!arrivalDate || travelPeriods.length === 0) {
         result.innerHTML = "<p class='fail'>Please enter valid arrival and travel dates.</p>";
         return;
       }
+
+      // Store data for report generation
+      lastArrivalDate = arrivalDate;
+      lastTravelPeriods = travelPeriods;
 
       // ILR check
       const ilrDate = new Date(arrivalDate);
@@ -184,6 +278,108 @@
         }
         result.innerHTML += `</ul>`;
       }
+
+      // Generate and store the detailed report
+      const rollingPeriods = generateDetailedRollingPeriodsReport(arrivalDate, earliestApplyDate, travelPeriods);
+      generateReportDisplay(rollingPeriods, ilrEligible, travelPeriods);
+
+      // Show the report button
+      document.getElementById('reportBtn').style.display = 'block';
+    }
+
+    function generateReportDisplay(rollingPeriods, ilrEligible, travelPeriods) {
+      const reportDiv = document.getElementById('detailedReport');
+      let html = `<h3>📊 Detailed Rolling Periods Report</h3>`;
+
+      html += `<div class="summary-box">
+        <p><strong>📌 What is this report?</strong> Every 12-month rolling period from your arrival must have ≤180 days abroad for ILR eligibility.</p>
+        <p><strong>🟢 Green rows:</strong> Periods where you stayed within the 180-day limit (eligible).</p>
+        <p><strong>🔴 Red rows:</strong> Periods where you exceeded 180 days abroad (not eligible).</p>
+      </div>`;
+
+      // Show input travel periods summary
+      html += `<h4>Your Input Travel Periods (${travelPeriods.length} total):</h4>`;
+      html += `<table class="report-table">
+        <thead>
+          <tr>
+            <th>Trip #</th>
+            <th>Departure Date</th>
+            <th>Return Date</th>
+            <th>Days Away</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      travelPeriods.forEach((p, idx) => {
+        html += `<tr style="background: #f9f9f9;">
+          <td><strong>#${idx + 1}</strong></td>
+          <td>${p.start.toDateString()}</td>
+          <td>${p.end.toDateString()}</td>
+          <td>${p.days} days</td>
+        </tr>`;
+      });
+
+      html += `</tbody></table>`;
+
+      // Main rolling periods analysis
+      html += `<h4>Rolling 12-Month Periods Analysis (${rollingPeriods.length} critical checkpoints):</h4>`;
+      html += `<table class="report-table">
+        <thead>
+          <tr>
+            <th>Window Start</th>
+            <th>Window End</th>
+            <th>Travel Within Period</th>
+            <th>Days Abroad</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      rollingPeriods.forEach((period) => {
+        const statusClass = period.isEligible ? 'pass-period' : 'fail-period';
+        const statusText = period.isEligible ? '✅ PASS' : '❌ FAIL';
+
+        let travelList = period.periodsInWindow.map(p => `Trip #${p.travelIndex}`).join(', ');
+        if (!travelList) travelList = '(None)';
+
+        html += `<tr class="${statusClass}">
+          <td style="font-size: 0.85em;">${period.windowStart.toDateString()}</td>
+          <td style="font-size: 0.85em;">${period.endDate.toDateString()}</td>
+          <td style="font-size: 0.85em;">${travelList}</td>
+          <td><strong>${period.daysAbroad}</strong></td>
+          <td>${statusText}</td>
+        </tr>`;
+      });
+
+      html += `</tbody></table>`;
+
+      // Detailed breakdown for failing periods
+      const failingPeriods = rollingPeriods.filter(p => !p.isEligible);
+      if (failingPeriods.length > 0) {
+        html += `<h4 style="color: red;">⚠️ Failing Periods - Detailed Breakdown:</h4>`;
+        failingPeriods.forEach((period, idx) => {
+          html += `<div style="background: #ffe6e6; padding: 1em; margin: 1em 0; border-left: 4px solid red; border-radius: 4px;">
+            <p><strong>Period ${idx + 1}:</strong> ${period.windowStart.toDateString()} to ${period.endDate.toDateString()}</p>
+            <p><strong>Days Abroad:</strong> ${period.daysAbroad} days (exceeds 180 by ${period.daysAbroad - 180} days)</p>
+            <p><strong>Trips within period:</strong></p>
+            <ul>`;
+
+          period.periodsInWindow.forEach(p => {
+            html += `<li>Trip #${p.travelIndex}: ${p.overlapStart.toDateString()} to ${p.overlapEnd.toDateString()} (${p.daysInPeriod} days counted)</li>`;
+          });
+
+          html += `</ul></div>`;
+        });
+      }
+
+      html += `<div class="summary-box">
+        <p><strong>Summary:</strong> Total rolling periods checked: <strong>${rollingPeriods.length}</strong></p>
+        <p><strong>Passing periods:</strong> <strong>${rollingPeriods.filter(p => p.isEligible).length}</strong> ✅</p>
+        <p><strong>Failing periods:</strong> <strong>${failingPeriods.length}</strong> ${failingPeriods.length > 0 ? '❌' : '✅'}</p>
+        <p><strong>Overall ILR Status:</strong> ${ilrEligible ? '✅ ALL periods within 180-day limit - Eligible!' : '❌ Some periods exceed 180 days - Not eligible'}</p>
+      </div>`;
+
+      reportDiv.innerHTML = html;
     }
   </script>
   
@@ -195,6 +391,12 @@
         if (response.ok) {
           const script = document.createElement('script');
           script.src = './local-data.js';
+          script.onload = () => {
+            // Call fillTestData immediately after script loads
+            if (window.fillTestData && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+              fillTestData();
+            }
+          };
           document.head.appendChild(script);
         }
       })
