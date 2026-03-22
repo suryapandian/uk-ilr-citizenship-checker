@@ -4,6 +4,12 @@ Fully written and deployed on Netlify by help from ChatGPT
 
 https://uk-ilr-citizenship.netlify.app/
 
+## ⚠️ Disclaimer
+
+**This tool is for informational purposes only and should NOT be relied upon as professional legal or immigration advice.** UK immigration rules and eligibility requirements change frequently and are subject to updates by the UK Home Office.
+
+**Always verify your eligibility directly with the official UK Home Office website before making any decisions or submitting applications.** This tool may not reflect the most current rules and regulations.
+
 ## Running Locally
 
 ```bash
